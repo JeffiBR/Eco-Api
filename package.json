@@ -1,0 +1,17 @@
+{
+  "name": "economiza-bot",
+  "version": "1.0.0",
+  "description": "Bot Telegram para consultar dados coletados pela ferramenta Economiza Alagoas",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+  "node-telegram-bot-api": "^0.61.0",
+  "dotenv": "^16.0.0",
+  "axios": "^1.4.0",
+  "form-data": "^4.0.0"
+  }
+}
