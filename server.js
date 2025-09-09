@@ -34,7 +34,7 @@ const logger = winston.createLogger({
 
 // Middlewares
 app.use(cors({
-  origin: ['https://seu-frontend.netlify.app', 'http://localhost:3000'],
+  origin: ['https://jeffibr.github.io/Eco-Api/', 'http://localhost:3000'],
   credentials: true
 }));
 app.use(express.json());
