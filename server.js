@@ -1,4 +1,3 @@
-// backend/server.js
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -15,8 +14,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuração do Supabase
-const supabaseUrl = 'https://zhaetrzpkkgzfrwxfqdw.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoYWV0cnpwa2tnemZyd3hmcWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjM3MzksImV4cCI6MjA3Mjk5OTczOX0.UHoWWZahvp_lMDH8pK539YIAFTAUnQk9mBX5tdixwN0';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://zhaetrzpkkgzfrwxfqdw.supabase.co';
+const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoYWV0cnpwa2tnemZyd3hmcWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjM3MzksImV4cCI6MjA3Mjk5OTczOX0.UHoWWZahvp_lMDH8pK539YIAFTAUnQk9mBX5tdixwN0';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuração do logger
@@ -34,7 +33,10 @@ const logger = winston.createLogger({
 });
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: ['https://seu-frontend.netlify.app', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Constantes da API Economiza Alagoas
@@ -200,6 +202,21 @@ function filtrarRegistrosRecentes(historico) {
     return diffDias <= LIMITE_DIAS_HISTORICO;
   });
 }
+
+// Endpoint de teste
+app.get('/api/test', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('users').select('count').single();
+    
+    if (error) {
+      return res.status(500).json({ message: 'Erro ao conectar com o Supabase', error: error.message });
+    }
+    
+    res.json({ message: 'Conexão com o Supabase bem-sucedida', data });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro no servidor', error: error.message });
+  }
+});
 
 // Rotas de autenticação
 app.post('/api/register', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
