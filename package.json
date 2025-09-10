@@ -16,7 +16,9 @@
     "jsonwebtoken": "^9.0.2",
     "p-limit": "^4.0.0",
     "winston": "^3.11.0",
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "json2csv": "^5.0.7",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
