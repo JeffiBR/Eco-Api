@@ -6,16 +6,18 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
-const pLimit = require('p-limit').default;
+const pLimit = require('pLimit').default;
 const winston = require('winston');
+const { Parser } = require('json2csv');
+const lodash = require('lodash');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuração do Supabase
-const supabaseUrl = process.env.SUPABASE_URL || 'https://zhaetrzpkkgzfrwxfqdw.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoYWV0cnpwa2tnemZyd3hmcWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjM3MzksImV4cCI6MjA3Mjk5OTczOX0.UHoWWZahvp_lMDH8pK539YIAFTAUnQk9mBX5tdixwN0';
+const supabaseUrl = 'https://zhaetrzpkkgzfrwxfqdw.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoYWV0cnpwa2tnemZyd3hmcWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjM3MzksImV4cCI6MjA3Mjk5OTczOX0.UHoWWZahvp_lMDH8pK539YIAFTAUnQk9mBX5tdixwN0';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuração do logger
@@ -215,6 +217,117 @@ function filtrarRegistrosRecentes(historico) {
   });
 }
 
+// Funções de análise de dados
+function analisarDados(dados) {
+  if (!dados || dados.length === 0) {
+    return {
+      mensagem: 'Nenhum dado para analisar',
+      estatisticas: {}
+    };
+  }
+
+  // Análise básica
+  const estatisticas = {
+    total_registros: dados.length,
+    produtos_unicos: lodash.uniqBy(dados, 'id_produto').length,
+    supermercados_unicos: lodash.uniqBy(dados, 'cnpj_supermercado').length,
+    categorias_unicas: lodash.uniqBy(dados, 'categoria_produto').length,
+    periodo: {
+      inicio: lodash.minBy(dados, 'data_coleta')?.data_coleta,
+      fim: lodash.maxBy(dados, 'data_coleta')?.data_coleta
+    }
+  };
+
+  // Análise por categoria
+  const porCategoria = lodash.groupBy(dados, 'categoria_produto');
+  estatisticas.por_categoria = {};
+
+  Object.keys(porCategoria).forEach(categoria => {
+    const itens = porCategoria[categoria];
+    const precos = itens.map(item => parseFloat(item.preco_produto)).filter(p => !isNaN(p));
+    
+    estatisticas.por_categoria[categoria] = {
+      quantidade: itens.length,
+      preco_medio: precos.length > 0 ? lodash.mean(precos) : 0,
+      preco_minimo: precos.length > 0 ? lodash.min(precos) : 0,
+      preco_maximo: precos.length > 0 ? lodash.max(precos) : 0,
+      desvio_padrao: precos.length > 0 ? lodash.stdDev(precos) : 0
+    };
+  });
+
+  // Análise por supermercado
+  const porSupermercado = lodash.groupBy(dados, 'cnpj_supermercado');
+  estatisticas.por_supermercado = {};
+
+  Object.keys(porSupermercado).forEach(cnpj => {
+    const itens = porSupermercado[cnpj];
+    const precos = itens.map(item => parseFloat(item.preco_produto)).filter(p => !isNaN(p));
+    
+    estatisticas.por_supermercado[cnpj] = {
+      nome: itens[0]?.nome_supermercado || 'Desconhecido',
+      quantidade: itens.length,
+      preco_medio: precos.length > 0 ? lodash.mean(precos) : 0,
+      preco_minimo: precos.length > 0 ? lodash.min(precos) : 0,
+      preco_maximo: precos.length > 0 ? lodash.max(precos) : 0,
+      desvio_padrao: precos.length > 0 ? lodash.stdDev(precos) : 0
+    };
+  });
+
+  // Análise temporal
+  const porData = lodash.groupBy(dados, item => {
+    const data = new Date(item.data_coleta);
+    return data.toISOString().split('T')[0]; // Agrupar por dia
+  });
+
+  estatisticas.por_data = {};
+
+  Object.keys(porData).forEach(data => {
+    const itens = porData[data];
+    const precos = itens.map(item => parseFloat(item.preco_produto)).filter(p => !isNaN(p));
+    
+    estatisticas.por_data[data] = {
+      quantidade: itens.length,
+      preco_medio: precos.length > 0 ? lodash.mean(precos) : 0,
+      preco_minimo: precos.length > 0 ? lodash.min(precos) : 0,
+      preco_maximo: precos.length > 0 ? lodash.max(precos) : 0
+    };
+  });
+
+  // Produtos com maior variação de preço
+  const produtosComVariacao = [];
+  const produtosAgrupados = lodash.groupBy(dados, 'id_produto');
+
+  Object.keys(produtosAgrupados).forEach(idProduto => {
+    const itens = produtosAgrupados[idProduto];
+    const precos = itens.map(item => parseFloat(item.preco_produto)).filter(p => !isNaN(p));
+    
+    if (precos.length > 1) {
+      const min = lodash.min(precos);
+      const max = lodash.max(precos);
+      const variacao = ((max - min) / min) * 100;
+      
+      produtosComVariacao.push({
+        id_produto: idProduto,
+        nome_produto: itens[0].nome_produto,
+        preco_minimo: min,
+        preco_maximo: max,
+        variacao_percentual: variacao,
+        supermercado_mais_caro: lodash.find(itens, item => parseFloat(item.preco_produto) === max)?.nome_supermercado,
+        supermercado_mais_barato: lodash.find(itens, item => parseFloat(item.preco_produto) === min)?.nome_supermercado
+      });
+    }
+  });
+
+  // Ordenar por maior variação
+  produtosComVariacao.sort((a, b) => b.variacao_percentual - a.variacao_percentual);
+  estatisticas.produtos_com_maior_variacao = produtosComVariacao.slice(0, 10); // Top 10
+
+  return {
+    mensagem: `Análise concluída com ${dados.length} registros`,
+    estatisticas
+  };
+}
+
 // Endpoint de teste
 app.get('/api/test', async (req, res) => {
   try {
@@ -230,67 +343,12 @@ app.get('/api/test', async (req, res) => {
   }
 });
 
-// Rotas de autenticação
-app.post('/api/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    // Buscar usuário
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .single();
-    
-    if (error || !user) {
-      return res.status(401).json({ message: 'Credenciais inválidas' });
-    }
-    
-    // Verificar senha
-    const isPasswordValid = bcrypt.compareSync(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Credenciais inválidas' });
-    }
-    
-    // Gerar token JWT
-    const token = jwt.sign({ 
-      id: user.id, 
-      username: user.username,
-      permission_level: user.permission_level
-    }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '24h' });
-    
-    // Registrar log
-    await supabase
-      .from('logs')
-      .insert([
-        {
-          action: 'LOGIN',
-          user_id: user.id,
-          details: `Usuário ${username} fez login`
-        }
-      ]);
-    
-    res.json({
-      message: 'Login realizado com sucesso',
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        permission_level: user.permission_level
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Erro no servidor', error: error.message });
-  }
-});
-
 // Rotas de usuários
 app.get('/api/users', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, email, permission_level, created_at');
+      .select('id, username, email, permission_level, created_at, cargo');
     
     if (error) {
       return res.status(500).json({ message: 'Erro ao buscar usuários', error: error.message });
@@ -302,16 +360,75 @@ app.get('/api/users', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN)
   }
 });
 
+app.post('/api/users', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
+  try {
+    const { username, password, email, permission_level, cargo } = req.body;
+    
+    // Verificar se o usuário já existe
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('username')
+      .eq('username', username)
+      .single();
+    
+    if (existingUser) {
+      return res.status(400).json({ message: 'Nome de usuário já em uso' });
+    }
+    
+    // Hash da senha
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(password, salt);
+    
+    // Inserir novo usuário
+    const { data, error } = await supabase
+      .from('users')
+      .insert([
+        { 
+          username, 
+          password: hashedPassword, 
+          email,
+          permission_level,
+          cargo
+        }
+      ])
+      .select()
+      .single();
+    
+    if (error) {
+      return res.status(500).json({ message: 'Erro ao criar usuário', error: error.message });
+    }
+    
+    // Registrar log
+    await supabase
+      .from('logs')
+      .insert([
+        {
+          action: 'CREATE_USER',
+          user_id: req.user.id,
+          target_user_id: data.id,
+          details: `Criou usuário ${username} com nível de permissão ${permission_level} e cargo ${cargo}`
+        }
+      ]);
+    
+    res.status(201).json({
+      message: 'Usuário criado com sucesso',
+      user: data
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro no servidor', error: error.message });
+  }
+});
+
 app.put('/api/users/:id', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
   try {
     const { id } = req.params;
-    const { permission_level } = req.body;
+    const { permission_level, cargo } = req.body;
     
     const { data, error } = await supabase
       .from('users')
-      .update({ permission_level })
+      .update({ permission_level, cargo })
       .eq('id', id)
-      .select('id, username, email, permission_level')
+      .select('id, username, email, permission_level, cargo')
       .single();
     
     if (error) {
@@ -326,13 +443,54 @@ app.put('/api/users/:id', authenticateToken, authorizeLevel(PERMISSION_LEVELS.AD
           action: 'UPDATE_USER',
           user_id: req.user.id,
           target_user_id: id,
-          details: `Atualizou permissão do usuário ${data.username} para nível ${permission_level}`
+          details: `Atualizou permissão do usuário ${data.username} para nível ${permission_level} e cargo ${cargo}`
         }
       ]);
     
     res.json({
       message: 'Usuário atualizado com sucesso',
       user: data
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro no servidor', error: error.message });
+  }
+});
+
+app.delete('/api/users/:id', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Buscar usuário antes de excluir
+    const { data: user } = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', id)
+      .single();
+    
+    // Excluir usuário
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      return res.status(500).json({ message: 'Erro ao excluir usuário', error: error.message });
+    }
+    
+    // Registrar log
+    await supabase
+      .from('logs')
+      .insert([
+        {
+          action: 'DELETE_USER',
+          user_id: req.user.id,
+          target_user_id: id,
+          details: `Excluiu usuário ${user.username}`
+        }
+      ]);
+    
+    res.json({
+      message: 'Usuário excluído com sucesso'
     });
   } catch (error) {
     res.status(500).json({ message: 'Erro no servidor', error: error.message });
@@ -536,7 +694,145 @@ app.get('/api/produto/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/coletar-dados', authenticateToken, authorizeLevel(PERMISSION_LEVELS.MODERATOR), async (req, res) => {
+// Rota de análise de dados
+app.get('/api/analise', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      cnpj, 
+      categoria, 
+      periodo = 30,
+      source = 'database'
+    } = req.query;
+    
+    // Calcular período
+    const dataFim = new Date();
+    const dataInicio = new Date();
+    dataInicio.setDate(dataFim.getDate() - parseInt(periodo));
+    
+    // Formatar datas para ISO
+    const dataInicioISO = dataInicio.toISOString();
+    const dataFimISO = dataFim.toISOString();
+    
+    // Buscar dados
+    let dados;
+    
+    if (source === 'api') {
+      const response = await axios.get(`${req.protocol}://${req.get('host')}/api/dados`, {
+        params: {
+          dataInicio: dataInicioISO,
+          dataFim: dataFimISO,
+          source: 'api'
+        },
+        headers: {
+          'Authorization': `Bearer ${req.headers.authorization.split(' ')[1]}`
+        }
+      });
+      
+      dados = response.data;
+    } else {
+      const { data, error } = await supabase
+        .from('produtos_supermercados')
+        .select('*')
+        .gte('data_coleta', dataInicioISO)
+        .lte('data_coleta', dataFimISO);
+      
+      if (error) {
+        return res.status(500).json({ message: 'Erro ao buscar dados para análise', error: error.message });
+      }
+      
+      dados = data;
+    }
+    
+    // Filtrar por CNPJ, se especificado
+    if (cnpj) {
+      dados = dados.filter(item => item.cnpj_supermercado === cnpj);
+    }
+    
+    // Filtrar por categoria, se especificado
+    if (categoria) {
+      dados = dados.filter(item => item.categoria_produto === categoria);
+    }
+    
+    // Analisar dados
+    const resultadoAnalise = analisarDados(dados);
+    
+    res.json(resultadoAnalise);
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao analisar dados', error: error.message });
+  }
+});
+
+// Rota para exportar dados em CSV
+app.get('/api/exportar/csv', authenticateToken, authorizeLevel(PERMISSION_LEVELS.MODERATOR), async (req, res) => {
+  try {
+    const { 
+      cnpj, 
+      categoria, 
+      periodo = 30 
+    } = req.query;
+    
+    // Calcular período
+    const dataFim = new Date();
+    const dataInicio = new Date();
+    dataInicio.setDate(dataFim.getDate() - parseInt(periodo));
+    
+    // Formatar datas para ISO
+    const dataInicioISO = dataInicio.toISOString();
+    const dataFimISO = dataFim.toISOString();
+    
+    // Buscar dados
+    const { data, error } = await supabase
+      .from('produtos_supermercados')
+      .select('*')
+      .gte('data_coleta', dataInicioISO)
+      .lte('data_coleta', dataFimISO);
+    
+    if (error) {
+      return res.status(500).json({ message: 'Erro ao buscar dados para exportação', error: error.message });
+    }
+    
+    // Filtrar por CNPJ, se especificado
+    let dadosFiltrados = data;
+    if (cnpj) {
+      dadosFiltrados = dadosFiltrados.filter(item => item.cnpj_supermercado === cnpj);
+    }
+    
+    // Filtrar por categoria, se especificado
+    if (categoria) {
+      dadosFiltrados = dadosFiltrados.filter(item => item.categoria_produto === categoria);
+    }
+    
+    // Preparar dados para CSV
+    const dadosCSV = dadosFiltrados.map(item => ({
+      'Produto': item.nome_produto,
+      'Supermercado': item.nome_supermercado,
+      'Categoria': item.categoria_produto,
+      'Preço': item.preco_produto,
+      'Unidade de Medida': item.unidade_medida,
+      'Data da Última Venda': item.data_ultima_venda,
+      'Data da Coleta': item.data_coleta,
+      'Código de Barras': item.codigo_barras || '',
+      'Origem': item.origem
+    }));
+    
+    // Converter para CSV
+    const parser = new Parser({
+      fields: Object.keys(dadosCSV[0] || {})
+    });
+    
+    const csv = parser.parse(dadosCSV);
+    
+    // Configurar resposta
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=produtos_${new Date().toISOString().split('T')[0]}.csv`);
+    
+    res.send(csv);
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao exportar dados', error: error.message });
+  }
+});
+
+app.post('/api/coletar-dados', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
   try {
     // Iniciar coleta de dados
     res.json({ message: 'Coleta de dados iniciada em segundo plano' });
@@ -598,7 +894,7 @@ app.get('/api/comparar', authenticateToken, async (req, res) => {
       
       if (source === 'api') {
         // Buscar da API
-        const response = await axios.get(`${API_URL}/dados`, {
+        const response = await axios.get(`${req.protocol}://${req.get('host')}/api/dados`, {
           params: {
             produto,
             dataInicio: dataInicioISO,
@@ -705,7 +1001,7 @@ app.get('/api/estatisticas', authenticateToken, async (req, res) => {
     let dados;
     
     if (source === 'api') {
-      const response = await axios.get(`${API_URL}/dados`, {
+      const response = await axios.get(`${req.protocol}://${req.get('host')}/api/dados`, {
         params: {
           dataInicio: dataInicioISO,
           dataFim: dataFimISO,
@@ -736,89 +1032,10 @@ app.get('/api/estatisticas', authenticateToken, async (req, res) => {
       dados = dados.filter(item => item.cnpj_supermercado === cnpj);
     }
     
-    // Agrupar por categoria de produto
-    const categorias = {};
+    // Analisar dados
+    const resultadoAnalise = analisarDados(dados);
     
-    dados.forEach(registro => {
-      const categoria = registro.categoria_produto || 'Outros';
-      if (!categorias[categoria]) {
-        categorias[categoria] = {
-          quantidade: 0,
-          precos: []
-        };
-      }
-      categorias[categoria].quantidade++;
-      categorias[categoria].precos.push(parseFloat(registro.preco_produto));
-    });
-    
-    // Calcular estatísticas por categoria
-    const estatisticasCategorias = Object.keys(categorias).map(categoria => {
-      const dadosCategoria = categorias[categoria];
-      const precos = dadosCategoria.precos;
-      
-      return {
-        categoria,
-        quantidade_produtos: dadosCategoria.quantidade,
-        preco_medio: precos.length > 0 ? 
-          (precos.reduce((sum, p) => sum + p, 0) / precos.length).toFixed(2) : 
-          null,
-        preco_minimo: precos.length > 0 ? Math.min(...precos).toFixed(2) : null,
-        preco_maximo: precos.length > 0 ? Math.max(...precos).toFixed(2) : null
-      };
-    });
-    
-    // Ordenar por quantidade de produtos
-    estatisticasCategorias.sort((a, b) => b.quantidade_produtos - a.quantidade_produtos);
-    
-    // Agrupar por supermercado
-    const supermercados = {};
-    
-    dados.forEach(registro => {
-      const cnpj = registro.cnpj_supermercado;
-      if (!supermercados[cnpj]) {
-        const mercado = MERCADOS.find(m => m.cnpj === cnpj);
-        supermercados[cnpj] = {
-          nome: mercado ? mercado.nome : 'Desconhecido',
-          categoria: mercado ? mercado.categoria : '',
-          cidade: mercado ? mercado.cidade : '',
-          precos: []
-        };
-      }
-      supermercados[cnpj].precos.push(parseFloat(registro.preco_produto));
-    });
-    
-    // Calcular estatísticas por supermercado
-    const estatisticasSupermercados = Object.keys(supermercados).map(cnpj => {
-      const dadosSupermercado = supermercados[cnpj];
-      const precos = dadosSupermercado.precos;
-      
-      return {
-        cnpj,
-        nome: dadosSupermercado.nome,
-        categoria: dadosSupermercado.categoria,
-        cidade: dadosSupermercado.cidade,
-        quantidade_produtos: precos.length,
-        preco_medio: precos.length > 0 ? 
-          (precos.reduce((sum, p) => sum + p, 0) / precos.length).toFixed(2) : 
-          null,
-        preco_minimo: precos.length > 0 ? Math.min(...precos).toFixed(2) : null,
-        preco_maximo: precos.length > 0 ? Math.max(...precos).toFixed(2) : null
-      };
-    });
-    
-    // Ordenar por preço médio
-    estatisticasSupermercados.sort((a, b) => parseFloat(a.preco_medio) - parseFloat(b.preco_medio));
-    
-    res.json({
-      periodo: {
-        inicio: dataInicioISO,
-        fim: dataFimISO,
-        dias: periodo
-      },
-      categorias: estatisticasCategorias,
-      supermercados: estatisticasSupermercados,
-      total_registros: dados.length
-    });
+    res.json(resultadoAnalise);
   } catch (error) {
     res.status(500).json({ message: 'Erro ao gerar estatísticas', error: error.message });
   }
