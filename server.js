@@ -32,12 +32,24 @@ const logger = winston.createLogger({
   ],
 });
 
-// Middlewares
-app.use(cors({
-  origin: ['https://jeffibr.github.io/Eco-Api/', 'http://localhost:3000'],
+// Configuração do CORS para aceitar requisições de múltiplas origens
+const corsOptions = {
+  origin: [
+    'https://jeffibr.github.io',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
+
+// Middlewares
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Middleware para lidar com requisições preflight (OPTIONS)
+app.options('*', cors(corsOptions));
 
 // Constantes da API Economiza Alagoas
 const ECONOMIZA_ALAGOAS_TOKEN = process.env.ECONOMIZA_ALAGOAS_TOKEN || '0c80f47b7a0e3987fc8283c4a53e88c03191812a';
@@ -219,68 +231,6 @@ app.get('/api/test', async (req, res) => {
 });
 
 // Rotas de autenticação
-app.post('/api/register', authenticateToken, authorizeLevel(PERMISSION_LEVELS.ADMIN), async (req, res) => {
-  try {
-    const { username, password, email, permission_level } = req.body;
-    
-    // Verificar se o usuário já existe
-    const { data: existingUser, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .single();
-    
-    if (existingUser) {
-      return res.status(400).json({ message: 'Nome de usuário já em uso' });
-    }
-    
-    // Hash da senha
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(password, salt);
-    
-    // Inserir novo usuário
-    const { data, error } = await supabase
-      .from('users')
-      .insert([
-        { 
-          username, 
-          password: hashedPassword, 
-          email,
-          permission_level: permission_level || PERMISSION_LEVELS.VISITOR
-        }
-      ])
-      .single();
-    
-    if (error) {
-      return res.status(500).json({ message: 'Erro ao criar usuário', error: error.message });
-    }
-    
-    // Registrar log
-    await supabase
-      .from('logs')
-      .insert([
-        {
-          action: 'CREATE_USER',
-          user_id: req.user.id,
-          target_user_id: data.id,
-          details: `Criou usuário ${username} com nível de permissão ${permission_level || PERMISSION_LEVELS.VISITOR}`
-        }
-      ]);
-    
-    res.status(201).json({
-      message: 'Usuário criado com sucesso',
-      user: {
-        id: data.id,
-        username: data.username,
-        email: data.email,
-        permission_level: data.permission_level
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Erro no servidor', error: error.message });
-  }
-});
-
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
