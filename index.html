@@ -6,6 +6,8 @@
     <title>Sistema de Análise de Preços</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary-color: #3498db;
@@ -213,17 +215,6 @@
 
         .btn-login:hover {
             background-color: #2980b9;
-        }
-
-        .register-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .register-link a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
         }
 
         /* Dashboard Styles */
@@ -598,1576 +589,337 @@
             padding: 6px 10px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        /* Logs Section */
-        .log-entry {
-            padding: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-
-        .log-action {
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        .log-time {
-            color: #7f8c8d;
-            font-size: 0.9rem;
-        }
-
-        .log-details {
-            color: var(--text-color);
-        }
-
-        /* Loading Spinner */
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: var(--white-color);
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .loading-content {
-            background-color: var(--card-bg);
-            padding: 20px 40px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        /* Alert Styles */
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 768px) {
-            .header-container {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            nav ul {
-                margin-top: 15px;
-            }
-
-            nav ul li {
-                margin: 0 10px;
-            }
-
-            .search-form {
-                flex-direction: column;
-            }
-
-            .btn-search {
-                width: 100%;
-            }
-
-            .dashboard-cards {
-                grid-template-columns: 1fr;
-            }
-
-            .charts-section {
-                grid-template-columns: 1fr;
-            }
-
-            .modal-content {
-                width: 95%;
-                margin: 5% auto;
-            }
         }
     </style>
 </head>
 <body>
-    <!-- Login Form -->
-    <div id="loginContainer" class="login-container">
-        <form id="loginForm" class="login-form">
-            <h2><i class="fas fa-chart-line"></i> Sistema de Análise de Preços</h2>
-            <div id="loginAlert"></div>
+    <div class="login-container">
+        <form class="login-form" id="loginForm">
+            <h2>Login</h2>
             <div class="form-group">
-                <label for="username">Usuário</label>
-                <input type="text" id="username" name="username" required>
+                <label for="email">E-mail</label>
+                <input type="email" id="email" required>
             </div>
             <div class="form-group">
                 <label for="password">Senha</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" required>
             </div>
             <button type="submit" class="btn-login">Entrar</button>
-            <div class="register-link">
-                <p>Não tem uma conta? <a href="#" id="showRegister">Registre-se</a></p>
-            </div>
         </form>
     </div>
 
-    <!-- Register Form (Hidden by default) -->
-    <div id="registerContainer" class="login-container" style="display: none;">
-        <form id="registerForm" class="login-form">
-            <h2><i class="fas fa-user-plus"></i> Criar Conta</h2>
-            <div id="registerAlert"></div>
-            <div class="form-group">
-                <label for="regUsername">Usuário</label>
-                <input type="text" id="regUsername" name="username" required>
-            </div>
-            <div class="form-group">
-                <label for="regEmail">E-mail</label>
-                <input type="email" id="regEmail" name="email" required>
-            </div>
-            <div class="form-group">
-                <label for="regPassword">Senha</label>
-                <input type="password" id="regPassword" name="password" required>
-            </div>
-            <div class="form-group">
-                <label for="regConfirmPassword">Confirmar Senha</label>
-                <input type="password" id="regConfirmPassword" name="confirmPassword" required>
-            </div>
-            <button type="submit" class="btn-login">Registrar</button>
-            <div class="register-link">
-                <p>Já tem uma conta? <a href="#" id="showLogin">Faça login</a></p>
-            </div>
-        </form>
-    </div>
-
-    <!-- Dashboard -->
-    <div id="dashboard" class="dashboard">
+    <div class="dashboard" id="dashboard">
         <header>
             <div class="container header-container">
-                <a href="#" class="logo"><i class="fas fa-chart-line"></i> Análise de Preços</a>
+                <a href="#" class="logo">
+                    <i class="fas fa-chart-line"></i>
+                    Sistema de Preços
+                </a>
                 <nav>
                     <ul>
-                        <li><a href="#" class="nav-link active" data-section="dashboard">Dashboard</a></li>
-                        <li><a href="#" class="nav-link" data-section="comparar">Comparar</a></li>
-                        <li><a href="#" class="nav-link" data-section="estatisticas">Estatísticas</a></li>
-                        <li><a href="#" class="nav-link" data-section="coletar">Coletar Dados</a></li>
-                        <li id="adminNav" style="display: none;"><a href="#" class="nav-link" data-section="usuarios">Usuários</a></li>
-                        <li id="logsNav" style="display: none;"><a href="#" class="nav-link" data-section="logs">Logs</a></li>
+                        <li><a href="#" class="active">Dashboard</a></li>
+                        <li><a href="#">Produtos</a></li>
+                        <li><a href="#">Relatórios</a></li>
+                        <li><a href="#">Configurações</a></li>
                     </ul>
                 </nav>
                 <div class="user-info">
-                    <button id="themeToggle" class="theme-toggle"><i class="fas fa-moon"></i></button>
-                    <span id="userDisplay">Usuário</span>
-                    <button id="logoutBtn" class="btn-logout">Sair</button>
+                    <span id="userName"></span>
+                    <button class="theme-toggle" id="themeToggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button class="btn-logout" id="logoutBtn">Sair</button>
                 </div>
             </div>
         </header>
 
-        <div class="container">
-            <!-- Dashboard Section -->
-            <div id="dashboardSection" class="dashboard-section">
-                <div class="dashboard-header">
-                    <h1>Dashboard</h1>
-                    <p>Bem-vindo ao sistema de análise de preços</p>
+        <main class="container">
+            <section class="dashboard-header">
+                <h1>Dashboard</h1>
+                <p>Visão geral do sistema</p>
+            </section>
+
+            <section class="dashboard-cards">
+                <div class="card positive">
+                    <div class="card-header">
+                        <h3 class="card-title">Total de Produtos</h3>
+                        <i class="fas fa-box card-icon"></i>
+                    </div>
+                    <div class="card-value" id="totalProducts">0</div>
+                    <div class="card-footer">Atualizado hoje</div>
                 </div>
 
-                <div class="dashboard-cards">
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">Total de Produtos</span>
-                            <i class="fas fa-box card-icon"></i>
-                        </div>
-                        <div class="card-value" id="totalProducts">0</div>
-                        <div class="card-footer">Produtos cadastrados</div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Média de Preços</h3>
+                        <i class="fas fa-dollar-sign card-icon"></i>
                     </div>
-                    <div class="card">
-                        <div class="card-header">
-                            <span class="card-title">Supermercados</span>
-                            <i class="fas fa-store card-icon"></i>
-                        </div>
-                        <div class="card-value" id="totalMarkets">0</div>
-                        <div class="card-footer">Supermercados monitorados</div>
-                    </div>
-                    <div class="card positive">
-                        <div class="card-header">
-                            <span class="card-title">Menor Preço</span>
-                            <i class="fas fa-arrow-down card-icon"></i>
-                        </div>
-                        <div class="card-value" id="lowestPrice">R$ 0,00</div>
-                        <div class="card-footer">Preço mais baixo encontrado</div>
-                    </div>
-                    <div class="card negative">
-                        <div class="card-header">
-                            <span class="card-title">Maior Preço</span>
-                            <i class="fas fa-arrow-up card-icon"></i>
-                        </div>
-                        <div class="card-value" id="highestPrice">R$ 0,00</div>
-                        <div class="card-footer">Preço mais alto encontrado</div>
-                    </div>
+                    <div class="card-value" id="averagePrice">R$ 0,00</div>
+                    <div class="card-footer">Últimos 30 dias</div>
                 </div>
 
-                <div class="search-section">
-                    <h3>Pesquisar Produtos</h3>
-                    <form id="searchForm" class="search-form">
-                        <div class="form-group">
-                            <label for="productSearch">Produto</label>
-                            <input type="text" id="productSearch" name="product" placeholder="Digite o nome do produto">
-                        </div>
-                        <div class="form-group">
-                            <label for="barcodeSearch">Código de Barras</label>
-                            <input type="text" id="barcodeSearch" name="barcode" placeholder="Digite o código de barras">
-                        </div>
-                        <div class="form-group">
-                            <label for="marketSearch">Supermercado</label>
-                            <select id="marketSearch" name="market">
-                                <option value="">Todos os supermercados</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="sourceSearch">Fonte de Dados</label>
-                            <select id="sourceSearch" name="source">
-                                <option value="database">Banco de Dados</option>
-                                <option value="api">API Economiza Alagoas</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn-search">Pesquisar</button>
-                    </form>
-                </div>
-
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3 class="results-title">Resultados da Pesquisa</h3>
-                        <span class="results-count" id="resultsCount">0 resultados</span>
+                <div class="card negative">
+                    <div class="card-header">
+                        <h3 class="card-title">Variação de Preços</h3>
+                        <i class="fas fa-chart-bar card-icon"></i>
                     </div>
-                    <div class="table-container">
-                        <table id="resultsTable">
-                            <thead>
-                                <tr>
-                                    <th>Produto</th>
-                                    <th>Supermercado</th>
-                                    <th>Preço</th>
-                                    <th>Data da Coleta</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Results will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <div class="card-value" id="priceVariation">0%</div>
+                    <div class="card-footer">Comparado ao mês anterior</div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Compare Section -->
-            <div id="compareSection" class="dashboard-section" style="display: none;">
-                <div class="dashboard-header">
-                    <h1>Comparar Preços</h1>
-                    <p>Compare os preços de produtos entre diferentes supermercados</p>
-                </div>
-
-                <div class="search-section">
-                    <h3>Configurar Comparação</h3>
-                    <div class="comparison-controls">
-                        <div class="product-selector">
-                            <label for="compareProduct">Produto</label>
-                            <input type="text" id="compareProduct" placeholder="Digite o nome do produto">
-                            <button type="button" id="addProductBtn" class="btn-add-product">Adicionar</button>
-                        </div>
-                        <div class="market-selector">
-                            <label for="compareMarket">Supermercado</label>
-                            <select id="compareMarket">
-                                <option value="">Todos os supermercados</option>
-                            </select>
-                        </div>
-                        <div class="date-selector">
-                            <label for="comparePeriod">Período (dias)</label>
-                            <select id="comparePeriod">
-                                <option value="7">Últimos 7 dias</option>
-                                <option value="14">Últimos 14 dias</option>
-                                <option value="30" selected>Últimos 30 dias</option>
-                            </select>
-                        </div>
-                        <div class="source-selector">
-                            <label for="compareSource">Fonte de Dados</label>
-                            <select id="compareSource">
-                                <option value="database">Banco de Dados</option>
-                                <option value="api">API Economiza Alagoas</option>
-                            </select>
-                        </div>
+            <section class="search-section">
+                <form class="search-form" id="searchForm">
+                    <div class="form-group">
+                        <label for="productSearch">Produto</label>
+                        <input type="text" id="productSearch" placeholder="Digite o nome do produto">
                     </div>
-                    
-                    <div class="selected-products">
-                        <h4>Produtos Selecionados:</h4>
-                        <div id="selectedProductsList">
-                            <!-- Selected products will be displayed here -->
-                        </div>
+                    <div class="form-group">
+                        <label for="marketSelect">Mercado</label>
+                        <select id="marketSelect">
+                            <option value="">Todos</option>
+                        </select>
                     </div>
-                    
-                    <button type="button" id="compareBtn" class="btn-search">Comparar</button>
-                </div>
-
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3 class="results-title">Resultado da Comparação</h3>
-                        <span class="results-count" id="compareResultsCount">0 resultados</span>
+                    <div class="form-group">
+                        <label for="dateRange">Período</label>
+                        <input type="date" id="dateRange">
                     </div>
-                    <div id="compareResults">
-                        <!-- Comparison results will be inserted here -->
-                    </div>
-                </div>
-            </div>
+                    <button type="submit" class="btn-search">
+                        <i class="fas fa-search"></i>
+                        Buscar
+                    </button>
+                </form>
+            </section>
 
-            <!-- Statistics Section -->
-            <div id="statisticsSection" class="dashboard-section" style="display: none;">
-                <div class="dashboard-header">
-                    <h1>Estatísticas</h1>
-                    <p>Análise estatística dos preços e produtos</p>
+            <section class="results-section">
+                <div class="results-header">
+                    <h2 class="results-title">Resultados</h2>
+                    <span class="results-count" id="resultsCount">0 items</span>
                 </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Mercado</th>
+                                <th>Preço</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTable">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
-                <div class="search-section">
-                    <h3>Filtrar Estatísticas</h3>
-                    <form id="statisticsForm" class="search-form">
-                        <div class="form-group">
-                            <label for="statsMarket">Supermercado</label>
-                            <select id="statsMarket" name="market">
-                                <option value="">Todos os supermercados</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="statsPeriod">Período</label>
-                            <select id="statsPeriod" name="period">
-                                <option value="7">Última semana</option>
-                                <option value="30" selected>Últimos 30 dias</option>
-                                <option value="90">Últimos 90 dias</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="statsSource">Fonte de Dados</label>
-                            <select id="statsSource" name="source">
-                                <option value="database">Banco de Dados</option>
-                                <option value="api">API Economiza Alagoas</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn-search">Gerar Estatísticas</button>
-                    </form>
+            <section class="charts-section">
+                <div class="chart-container">
+                    <h3 class="chart-title">Evolução de Preços</h3>
+                    <canvas id="priceChart"></canvas>
                 </div>
-
-                <div class="charts-section">
-                    <div class="chart-container">
-                        <h3 class="chart-title">Preços por Categoria</h3>
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h3 class="chart-title">Preços por Supermercado</h3>
-                        <canvas id="marketChart"></canvas>
-                    </div>
+                <div class="chart-container">
+                    <h3 class="chart-title">Distribuição por Mercado</h3>
+                    <canvas id="marketChart"></canvas>
                 </div>
-
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3 class="results-title">Estatísticas Detalhadas</h3>
-                    </div>
-                    <div class="table-container">
-                        <table id="statsTable">
-                            <thead>
-                                <tr>
-                                    <th>Categoria/Supermercado</th>
-                                    <th>Quantidade de Produtos</th>
-                                    <th>Preço Médio</th>
-                                    <th>Preço Mínimo</th>
-                                    <th>Preço Máximo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Statistics results will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Collect Data Section -->
-            <div id="collectSection" class="dashboard-section" style="display: none;">
-                <div class="dashboard-header">
-                    <h1>Coletar Dados</h1>
-                    <p>Inicie a coleta de dados dos supermercados</p>
-                </div>
-
-                <div class="search-section">
-                    <h3>Coleta de Dados</h3>
-                    <p>A coleta de dados é feita automaticamente da API Economiza Alagoas. Clique no botão abaixo para iniciar uma nova coleta.</p>
-                    <p><strong>Atenção:</strong> Este processo pode demorar alguns minutos, dependendo da quantidade de produtos e supermercados.</p>
-                    <button id="collectDataBtn" class="btn-search">Iniciar Coleta de Dados</button>
-                </div>
-
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3 class="results-title">Status da Coleta</h3>
-                    </div>
-                    <div id="collectStatus">
-                        <p>Nenhuma coleta em andamento.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Users Management Section -->
-            <div id="usersSection" class="dashboard-section" style="display: none;">
-                <div class="dashboard-header">
-                    <h1>Gerenciamento de Usuários</h1>
-                    <p>Crie e gerencie usuários do sistema</p>
-                </div>
-
-                <div class="search-section">
-                    <h3>Criar Novo Usuário</h3>
-                    <form id="createUserForm" class="search-form">
-                        <div class="form-group">
-                            <label for="newUsername">Usuário</label>
-                            <input type="text" id="newUsername" name="username" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="newEmail">E-mail</label>
-                            <input type="email" id="newEmail" name="email" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="newPassword">Senha</label>
-                            <input type="password" id="newPassword" name="password" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="newPermission">Nível de Permissão</label>
-                            <select id="newPermission" name="permission_level">
-                                <option value="1">Visitante</option>
-                                <option value="2">Moderador</option>
-                                <option value="3">Administrador</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn-search">Criar Usuário</button>
-                    </form>
-                </div>
-
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3 class="results-title">Usuários Cadastrados</h3>
-                    </div>
-                    <div class="table-container">
-                        <table id="usersTable" class="user-table">
-                            <thead>
-                                <tr>
-                                    <th>Usuário</th>
-                                    <th>E-mail</th>
-                                    <th>Permissão</th>
-                                    <th>Data de Criação</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Users will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Logs Section -->
-            <div id="logsSection" class="dashboard-section" style="display: none;">
-                <div class="dashboard-header">
-                    <h1>Logs do Sistema</h1>
-                    <p>Visualize as atividades realizadas no sistema</p>
-                </div>
-
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3 class="results-title">Logs de Atividade</h3>
-                    </div>
-                    <div id="logsList">
-                        <!-- Logs will be inserted here -->
-                    </div>
-                </div>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
 
-    <!-- Product Detail Modal -->
-    <div id="productModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Detalhes do Produto</h2>
-            <div id="productDetail" class="product-detail">
-                <!-- Product details will be inserted here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <p>Carregando...</p>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // API Base URL
-        const API_URL = 'https://eco-api-9ftz.onrender.com/api';
+        // Configuração do Supabase
+        const supabaseUrl = 'https://zhaetrzpkkgzfrwxfqdw.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoYWV0cnpwa2tnemZyd3hmcWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjM3MzksImV4cCI6MjA3Mjk5OTczOX0.UHoWWZahvp_lMDH8pK539YIAFTAUnQk9mBX5tdixwN0';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // DOM Elements
-        const loginContainer = document.getElementById('loginContainer');
-        const registerContainer = document.getElementById('registerContainer');
-        const dashboard = document.getElementById('dashboard');
+        // Elementos do DOM
         const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-        const loginAlert = document.getElementById('loginAlert');
-        const registerAlert = document.getElementById('registerAlert');
-        const showRegister = document.getElementById('showRegister');
-        const showLogin = document.getElementById('showLogin');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const userDisplay = document.getElementById('userDisplay');
-        const loadingOverlay = document.getElementById('loadingOverlay');
+        const dashboard = document.getElementById('dashboard');
+        const userName = document.getElementById('userName');
         const themeToggle = document.getElementById('themeToggle');
-        
-        // Navigation
-        const navLinks = document.querySelectorAll('.nav-link');
-        const dashboardSections = document.querySelectorAll('.dashboard-section');
-        
-        // Dashboard Elements
+        const logoutBtn = document.getElementById('logoutBtn');
         const searchForm = document.getElementById('searchForm');
-        const productSearch = document.getElementById('productSearch');
-        const barcodeSearch = document.getElementById('barcodeSearch');
-        const marketSearch = document.getElementById('marketSearch');
-        const sourceSearch = document.getElementById('sourceSearch');
-        const resultsTable = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+        const resultsTable = document.getElementById('resultsTable');
         const resultsCount = document.getElementById('resultsCount');
-        
-        // Compare Elements
-        const compareProduct = document.getElementById('compareProduct');
-        const addProductBtn = document.getElementById('addProductBtn');
-        const compareMarket = document.getElementById('compareMarket');
-        const comparePeriod = document.getElementById('comparePeriod');
-        const compareSource = document.getElementById('compareSource');
-        const compareBtn = document.getElementById('compareBtn');
-        const selectedProductsList = document.getElementById('selectedProductsList');
-        const compareResults = document.getElementById('compareResults');
-        const compareResultsCount = document.getElementById('compareResultsCount');
-        
-        // Statistics Elements
-        const statisticsForm = document.getElementById('statisticsForm');
-        const statsMarket = document.getElementById('statsMarket');
-        const statsPeriod = document.getElementById('statsPeriod');
-        const statsSource = document.getElementById('statsSource');
-        const statsTable = document.getElementById('statsTable').getElementsByTagName('tbody')[0];
-        
-        // Collect Data Elements
-        const collectDataBtn = document.getElementById('collectDataBtn');
-        const collectStatus = document.getElementById('collectStatus');
-        
-        // User Management Elements
-        const createUserForm = document.getElementById('createUserForm');
-        const newUsername = document.getElementById('newUsername');
-        const newEmail = document.getElementById('newEmail');
-        const newPassword = document.getElementById('newPassword');
-        const newPermission = document.getElementById('newPermission');
-        const usersTable = document.getElementById('usersTable').getElementsByTagName('tbody')[0];
-        
-        // Logs Elements
-        const logsList = document.getElementById('logsList');
-        
-        // Product Modal Elements
-        const productModal = document.getElementById('productModal');
-        const productDetail = document.getElementById('productDetail');
-        const modalClose = document.querySelector('.close');
-        
-        // Chart Elements
-        let categoryChart, marketChart;
-        
-        // Selected products for comparison
-        let selectedProducts = [];
-        
-        // Check if user is logged in
-        window.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('token');
-            const user = localStorage.getItem('user');
-            
-            if (token && user) {
-                const userData = JSON.parse(user);
-                showDashboard(userData);
-                loadDashboardData();
-                loadMarkets();
-                
-                // Show admin sections if user is admin
-                if (userData.permission_level === 3) {
-                    document.getElementById('adminNav').style.display = 'block';
-                    document.getElementById('logsNav').style.display = 'block';
-                }
-                
-                // Show collect data section if user is moderator or admin
-                if (userData.permission_level >= 2) {
-                    document.getElementById('coletar').style.display = 'block';
-                }
-            }
-            
-            // Check for saved theme preference
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-            }
-        });
-        
-        // Theme Toggle
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            if (currentTheme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'light');
-                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-                localStorage.setItem('theme', 'light');
-            } else {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-                localStorage.setItem('theme', 'dark');
-            }
-        });
-        
-        // Show/Hide Login/Register Forms
-        showRegister.addEventListener('click', (e) => {
+        const totalProducts = document.getElementById('totalProducts');
+        const averagePrice = document.getElementById('averagePrice');
+        const priceVariation = document.getElementById('priceVariation');
+        const priceChart = document.getElementById('priceChart');
+        const marketChart = document.getElementById('marketChart');
+
+        // Verificar se há um usuário logado
+        const session = supabase.auth.session();
+        if (session) {
+            showDashboard();
+        }
+
+        // Event Listeners
+        loginForm.addEventListener('submit', handleLogin);
+        logoutBtn.addEventListener('click', handleLogout);
+        themeToggle.addEventListener('click', toggleTheme);
+        searchForm.addEventListener('submit', handleSearch);
+
+        // Funções
+        async function handleLogin(e) {
             e.preventDefault();
-            loginContainer.style.display = 'none';
-            registerContainer.style.display = 'flex';
-        });
-        
-        showLogin.addEventListener('click', (e) => {
-            e.preventDefault();
-            registerContainer.style.display = 'none';
-            loginContainer.style.display = 'flex';
-        });
-        
-        // Login Form Submit
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
+
             try {
-                showLoading();
-                const response = await fetch(`${API_URL}/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
+                const { user, error } = await supabase.auth.signIn({
+                    email,
+                    password
                 });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    showDashboard(data.user);
-                    loadDashboardData();
-                    loadMarkets();
-                    
-                    // Show admin sections if user is admin
-                    if (data.user.permission_level === 3) {
-                        document.getElementById('adminNav').style.display = 'block';
-                        document.getElementById('logsNav').style.display = 'block';
-                    }
-                    
-                    // Show collect data section if user is moderator or admin
-                    if (data.user.permission_level >= 2) {
-                        document.getElementById('coletar').style.display = 'block';
-                    }
-                } else {
-                    showAlert(loginAlert, data.message, 'error');
-                }
+
+                if (error) throw error;
+                showDashboard();
             } catch (error) {
-                showAlert(loginAlert, 'Erro ao conectar com o servidor', 'error');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Register Form Submit
-        registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('regUsername').value;
-            const email = document.getElementById('regEmail').value;
-            const password = document.getElementById('regPassword').value;
-            const confirmPassword = document.getElementById('regConfirmPassword').value;
-            
-            if (password !== confirmPassword) {
-                showAlert(registerAlert, 'As senhas não coincidem', 'error');
-                return;
-            }
-            
-            try {
-                showLoading();
-                const response = await fetch(`${API_URL}/register`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ username, email, password })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    showAlert(registerAlert, 'Conta criada com sucesso! Faça login.', 'success');
-                    setTimeout(() => {
-                        registerContainer.style.display = 'none';
-                        loginContainer.style.display = 'flex';
-                        registerForm.reset();
-                    }, 2000);
-                } else {
-                    showAlert(registerAlert, data.message, 'error');
-                }
-            } catch (error) {
-                showAlert(registerAlert, 'Erro ao conectar com o servidor', 'error');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Logout
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            loginContainer.style.display = 'flex';
-            dashboard.classList.remove('active');
-        });
-        
-        // Navigation
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                
-                const section = link.getAttribute('data-section');
-                
-                // Update active nav link
-                navLinks.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-                
-                // Show selected section
-                dashboardSections.forEach(s => s.style.display = 'none');
-                document.getElementById(`${section}Section`).style.display = 'block';
-                
-                // Load section-specific data
-                if (section === 'estatisticas') {
-                    loadStatistics();
-                } else if (section === 'usuarios') {
-                    loadUsers();
-                } else if (section === 'logs') {
-                    loadLogs();
-                }
-            });
-        });
-        
-        // Search Form Submit
-        searchForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const product = productSearch.value;
-            const barcode = barcodeSearch.value;
-            const market = marketSearch.value;
-            const source = sourceSearch.value;
-            
-            try {
-                showLoading();
-                
-                let url = `${API_URL}/dados?`;
-                const params = new URLSearchParams();
-                
-                if (product) params.append('produto', product);
-                if (barcode) params.append('codigoBarras', barcode);
-                if (market) params.append('cnpj', market);
-                if (source) params.append('source', source);
-                
-                url += params.toString();
-                
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    displaySearchResults(data);
-                } else {
-                    alert('Erro ao buscar dados: ' + data.message);
-                }
-            } catch (error) {
-                alert('Erro ao conectar com o servidor');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Add Product to Comparison
-        addProductBtn.addEventListener('click', () => {
-            const product = compareProduct.value.trim();
-            
-            if (!product) {
-                alert('Por favor, digite o nome de um produto');
-                return;
-            }
-            
-            if (selectedProducts.length >= 5) {
-                alert('Você pode selecionar no máximo 5 produtos para comparação');
-                return;
-            }
-            
-            if (selectedProducts.includes(product)) {
-                alert('Este produto já foi adicionado à comparação');
-                return;
-            }
-            
-            selectedProducts.push(product);
-            updateSelectedProductsList();
-            compareProduct.value = '';
-        });
-        
-        // Update Selected Products List
-        function updateSelectedProductsList() {
-            selectedProductsList.innerHTML = '';
-            
-            selectedProducts.forEach((product, index) => {
-                const productTag = document.createElement('div');
-                productTag.className = 'product-tag';
-                productTag.innerHTML = `
-                    ${product}
-                    <span class="remove" data-index="${index}">&times;</span>
-                `;
-                selectedProductsList.appendChild(productTag);
-            });
-            
-            // Add event listeners to remove buttons
-            document.querySelectorAll('.product-tag .remove').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const index = parseInt(e.target.getAttribute('data-index'));
-                    selectedProducts.splice(index, 1);
-                    updateSelectedProductsList();
-                });
-            });
-        }
-        
-        // Compare Button
-        compareBtn.addEventListener('click', async () => {
-            if (selectedProducts.length === 0) {
-                alert('Por favor, adicione pelo menos um produto para comparação');
-                return;
-            }
-            
-            const market = compareMarket.value;
-            const period = comparePeriod.value;
-            const source = compareSource.value;
-            
-            try {
-                showLoading();
-                
-                let url = `${API_URL}/comparar?`;
-                const params = new URLSearchParams();
-                
-                selectedProducts.forEach(product => {
-                    params.append('produtos', product);
-                });
-                
-                if (market) params.append('mercados', market);
-                if (period) params.append('periodo', period);
-                if (source) params.append('source', source);
-                
-                url += params.toString();
-                
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    displayComparisonResults(data);
-                } else {
-                    alert('Erro ao buscar dados para comparação: ' + data.message);
-                }
-            } catch (error) {
-                alert('Erro ao conectar com o servidor');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Statistics Form Submit
-        statisticsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const market = statsMarket.value;
-            const period = statsPeriod.value;
-            const source = statsSource.value;
-            
-            try {
-                showLoading();
-                
-                let url = `${API_URL}/estatisticas?`;
-                const params = new URLSearchParams();
-                
-                if (market) params.append('cnpj', market);
-                if (period) params.append('periodo', period);
-                if (source) params.append('source', source);
-                
-                url += params.toString();
-                
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    displayStatistics(data);
-                } else {
-                    alert('Erro ao buscar estatísticas: ' + data.message);
-                }
-            } catch (error) {
-                alert('Erro ao conectar com o servidor');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Collect Data Button
-        collectDataBtn.addEventListener('click', async () => {
-            try {
-                showLoading();
-                const response = await fetch(`${API_URL}/coletar-dados`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    collectStatus.innerHTML = `
-                        <div class="alert alert-success">
-                            ${data.message}
-                        </div>
-                        <p>A coleta está sendo processada em segundo plano. Você pode continuar usando o sistema.</p>
-                    `;
-                } else {
-                    alert('Erro ao iniciar coleta de dados: ' + data.message);
-                }
-            } catch (error) {
-                alert('Erro ao conectar com o servidor');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Create User Form Submit
-        createUserForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = newUsername.value;
-            const email = newEmail.value;
-            const password = newPassword.value;
-            const permission_level = parseInt(newPermission.value);
-            
-            try {
-                showLoading();
-                const response = await fetch(`${API_URL}/register`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ username, email, password, permission_level })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    alert('Usuário criado com sucesso!');
-                    createUserForm.reset();
-                    loadUsers();
-                } else {
-                    alert('Erro ao criar usuário: ' + data.message);
-                }
-            } catch (error) {
-                alert('Erro ao conectar com o servidor');
-            } finally {
-                hideLoading();
-            }
-        });
-        
-        // Product Modal Close
-        modalClose.addEventListener('click', () => {
-            productModal.style.display = 'none';
-        });
-        
-        window.addEventListener('click', (e) => {
-            if (e.target === productModal) {
-                productModal.style.display = 'none';
-            }
-        });
-        
-        // Helper Functions
-        function showDashboard(user) {
-            loginContainer.style.display = 'none';
-            registerContainer.style.display = 'none';
-            dashboard.classList.add('active');
-            userDisplay.textContent = user.username;
-        }
-        
-        function showAlert(element, message, type) {
-            element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            setTimeout(() => {
-                element.innerHTML = '';
-            }, 5000);
-        }
-        
-        function showLoading() {
-            loadingOverlay.style.display = 'flex';
-        }
-        
-        function hideLoading() {
-            loadingOverlay.style.display = 'none';
-        }
-        
-        async function loadMarkets() {
-            try {
-                const response = await fetch(`${API_URL}/mercados`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Clear existing options
-                    marketSearch.innerHTML = '<option value="">Todos os supermercados</option>';
-                    compareMarket.innerHTML = '<option value="">Todos os supermercados</option>';
-                    statsMarket.innerHTML = '<option value="">Todos os supermercados</option>';
-                    
-                    // Add market options
-                    data.forEach(market => {
-                        const option1 = new Option(market.nome, market.cnpj);
-                        const option2 = new Option(market.nome, market.cnpj);
-                        const option3 = new Option(market.nome, market.cnpj);
-                        marketSearch.add(option1);
-                        compareMarket.add(option2);
-                        statsMarket.add(option3);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading markets:', error);
+                alert('Erro ao fazer login: ' + error.message);
             }
         }
-        
+
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            document.querySelector('.login-container').style.display = 'flex';
+            dashboard.style.display = 'none';
+        }
+
+        function showDashboard() {
+            document.querySelector('.login-container').style.display = 'none';
+            dashboard.style.display = 'block';
+            loadDashboardData();
+        }
+
+        function toggleTheme() {
+            document.body.setAttribute('data-theme',
+                document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+            );
+            const icon = themeToggle.querySelector('i');
+            icon.className = document.body.getAttribute('data-theme') === 'dark' 
+                ? 'fas fa-sun' 
+                : 'fas fa-moon';
+        }
+
         async function loadDashboardData() {
             try {
-                const response = await fetch(`${API_URL}/dados`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Update dashboard cards
-                    document.getElementById('totalProducts').textContent = data.length;
-                    
-                    // Get unique markets
-                    const uniqueMarkets = [...new Set(data.map(item => item.nome_supermercado))];
-                    document.getElementById('totalMarkets').textContent = uniqueMarkets.length;
-                    
-                    // Get lowest and highest prices
-                    const prices = data.map(item => parseFloat(item.preco_produto)).filter(price => !isNaN(price));
-                    if (prices.length > 0) {
-                        const lowestPrice = Math.min(...prices);
-                        const highestPrice = Math.max(...prices);
-                        
-                        document.getElementById('lowestPrice').textContent = `R$ ${lowestPrice.toFixed(2)}`;
-                        document.getElementById('highestPrice').textContent = `R$ ${highestPrice.toFixed(2)}`;
-                    }
-                }
+                // Carregar dados do dashboard
+                const { data: products, error } = await supabase
+                    .from('products')
+                    .select('*');
+
+                if (error) throw error;
+
+                // Atualizar estatísticas
+                updateStats(products);
+                // Criar gráficos
+                createCharts(products);
             } catch (error) {
-                console.error('Error loading dashboard data:', error);
+                console.error('Erro ao carregar dados:', error);
             }
         }
-        
-        function displaySearchResults(data) {
-            // Clear table
-            resultsTable.innerHTML = '';
-            
-            // Update results count
-            resultsCount.textContent = `${data.length} resultados`;
-            
-            // Add data to table
-            data.forEach(item => {
-                const row = resultsTable.insertRow();
-                
-                const productCell = row.insertCell(0);
-                productCell.textContent = item.nome_produto;
-                
-                const marketCell = row.insertCell(1);
-                marketCell.textContent = item.nome_supermercado;
-                
-                const priceCell = row.insertCell(2);
-                priceCell.textContent = `R$ ${parseFloat(item.preco_produto).toFixed(2)}`;
-                priceCell.classList.add('price-cell');
-                
-                const dateCell = row.insertCell(3);
-                const date = new Date(item.data_coleta);
-                dateCell.textContent = date.toLocaleDateString();
-                
-                const actionCell = row.insertCell(4);
-                const viewBtn = document.createElement('button');
-                viewBtn.textContent = 'Detalhes';
-                viewBtn.className = 'btn-edit';
-                viewBtn.addEventListener('click', () => showProductDetail(item));
-                actionCell.appendChild(viewBtn);
-            });
-        }
-        
-        function displayComparisonResults(data) {
-            // Clear previous results
-            compareResults.innerHTML = '';
-            
-            // Create a table for each product
-            for (const produto in data) {
-                const produtoData = data[produto];
-                
-                // Create product header
-                const productHeader = document.createElement('h3');
-                productHeader.textContent = produto;
-                productHeader.style.marginTop = '20px';
-                productHeader.style.marginBottom = '10px';
-                compareResults.appendChild(productHeader);
-                
-                // Create table
-                const table = document.createElement('table');
-                table.className = 'table';
-                
-                // Create table header
-                const thead = document.createElement('thead');
-                const headerRow = document.createElement('tr');
-                
-                const headers = ['Supermercado', 'Menor Preço', 'Maior Preço', 'Preço Médio', 'Registros'];
-                headers.forEach(headerText => {
-                    const th = document.createElement('th');
-                    th.textContent = headerText;
-                    headerRow.appendChild(th);
-                });
-                
-                thead.appendChild(headerRow);
-                table.appendChild(thead);
-                
-                // Create table body
-                const tbody = document.createElement('tbody');
-                
-                for (const cnpj in produtoData) {
-                    const mercadoData = produtoData[cnpj];
-                    const row = document.createElement('tr');
-                    
-                    // Market name
-                    const marketCell = document.createElement('td');
-                    marketCell.textContent = mercadoData.nome_supermercado;
-                    row.appendChild(marketCell);
-                    
-                    // Lowest price
-                    const lowestPriceCell = document.createElement('td');
-                    lowestPriceCell.textContent = `R$ ${parseFloat(mercadoData.menor_preco).toFixed(2)}`;
-                    lowestPriceCell.classList.add('price-cell', 'price-lowest');
-                    row.appendChild(lowestPriceCell);
-                    
-                    // Highest price
-                    const highestPriceCell = document.createElement('td');
-                    highestPriceCell.textContent = `R$ ${parseFloat(mercadoData.maior_preco).toFixed(2)}`;
-                    highestPriceCell.classList.add('price-cell', 'price-highest');
-                    row.appendChild(highestPriceCell);
-                    
-                    // Average price
-                    const avgPriceCell = document.createElement('td');
-                    avgPriceCell.textContent = `R$ ${parseFloat(mercadoData.preco_medio).toFixed(2)}`;
-                    avgPriceCell.classList.add('price-cell');
-                    row.appendChild(avgPriceCell);
-                    
-                    // Record count
-                    const countCell = document.createElement('td');
-                    countCell.textContent = mercadoData.quantidade_registros;
-                    row.appendChild(countCell);
-                    
-                    tbody.appendChild(row);
-                }
-                
-                table.appendChild(tbody);
-                compareResults.appendChild(table);
+
+        async function handleSearch(e) {
+            e.preventDefault();
+            const product = document.getElementById('productSearch').value;
+            const market = document.getElementById('marketSelect').value;
+            const date = document.getElementById('dateRange').value;
+
+            try {
+                let query = supabase
+                    .from('products')
+                    .select('*');
+
+                if (product) query = query.ilike('name', `%${product}%`);
+                if (market) query = query.eq('market', market);
+                if (date) query = query.gte('date', date);
+
+                const { data, error } = await query;
+
+                if (error) throw error;
+                updateResults(data);
+            } catch (error) {
+                console.error('Erro na busca:', error);
             }
-            
-            // Update results count
-            const totalResults = Object.keys(data).length;
-            compareResultsCount.textContent = `${totalResults} produtos comparados`;
         }
-        
-        function displayStatistics(data) {
-            // Clear table
-            statsTable.innerHTML = '';
+
+        function updateStats(products) {
+            if (!products.length) return;
+
+            totalProducts.textContent = products.length;
             
-            // Add category data to table
-            data.categorias.forEach(item => {
-                const row = statsTable.insertRow();
-                
-                const categoryCell = row.insertCell(0);
-                categoryCell.textContent = item.categoria;
-                
-                const countCell = row.insertCell(1);
-                countCell.textContent = item.quantidade_produtos;
-                
-                const avgPriceCell = row.insertCell(2);
-                avgPriceCell.textContent = `R$ ${parseFloat(item.preco_medio).toFixed(2)}`;
-                
-                const minPriceCell = row.insertCell(3);
-                minPriceCell.textContent = `R$ ${parseFloat(item.preco_minimo).toFixed(2)}`;
-                
-                const maxPriceCell = row.insertCell(4);
-                maxPriceCell.textContent = `R$ ${parseFloat(item.preco_maximo).toFixed(2)}`;
-            });
-            
-            // Add empty row
-            const emptyRow = statsTable.insertRow();
-            emptyRow.innerHTML = '<td colspan="5" style="height: 10px; background-color: var(--bg-color);"></td>';
-            
-            // Add market data to table
-            data.supermercados.forEach(item => {
-                const row = statsTable.insertRow();
-                
-                const marketCell = row.insertCell(0);
-                marketCell.textContent = item.nome;
-                
-                const countCell = row.insertCell(1);
-                countCell.textContent = item.quantidade_produtos;
-                
-                const avgPriceCell = row.insertCell(2);
-                avgPriceCell.textContent = `R$ ${parseFloat(item.preco_medio).toFixed(2)}`;
-                
-                const minPriceCell = row.insertCell(3);
-                minPriceCell.textContent = `R$ ${parseFloat(item.preco_minimo).toFixed(2)}`;
-                
-                const maxPriceCell = row.insertCell(4);
-                maxPriceCell.textContent = `R$ ${parseFloat(item.preco_maximo).toFixed(2)}`;
-            });
-            
-            // Create charts
-            createCategoryChart(data.categorias);
-            createMarketChart(data.supermercados);
+            const prices = products.map(p => p.price);
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            averagePrice.textContent = `R$ ${avgPrice.toFixed(2)}`;
+
+            const oldestPrice = Math.min(...prices);
+            const newestPrice = Math.max(...prices);
+            const variation = ((newestPrice - oldestPrice) / oldestPrice) * 100;
+            priceVariation.textContent = `${variation.toFixed(1)}%`;
         }
-        
-        function createCategoryChart(categories) {
-            const ctx = document.getElementById('categoryChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (categoryChart) {
-                categoryChart.destroy();
-            }
-            
-            categoryChart = new Chart(ctx, {
-                type: 'bar',
+
+        function createCharts(products) {
+            // Gráfico de evolução de preços
+            const priceCtx = priceChart.getContext('2d');
+            new Chart(priceCtx, {
+                type: 'line',
                 data: {
-                    labels: categories.map(c => c.categoria),
+                    labels: products.map(p => new Date(p.date).toLocaleDateString()),
                     datasets: [{
-                        label: 'Preço Médio (R$)',
-                        data: categories.map(c => parseFloat(c.preco_medio)),
-                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
-                        borderColor: 'rgba(52, 152, 219, 1)',
-                        borderWidth: 1
+                        label: 'Preço',
+                        data: products.map(p => p.price),
+                        borderColor: '#3498db',
+                        tension: 0.1
                     }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Preço Médio (R$)'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Categoria'
-                            }
-                        }
-                    }
                 }
             });
-        }
-        
-        function createMarketChart(markets) {
-            const ctx = document.getElementById('marketChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (marketChart) {
-                marketChart.destroy();
-            }
-            
-            marketChart = new Chart(ctx, {
-                type: 'bar',
+
+            // Gráfico de distribuição por mercado
+            const marketCtx = marketChart.getContext('2d');
+            const marketData = products.reduce((acc, p) => {
+                acc[p.market] = (acc[p.market] || 0) + 1;
+                return acc;
+            }, {});
+
+            new Chart(marketCtx, {
+                type: 'pie',
                 data: {
-                    labels: markets.map(m => m.nome),
+                    labels: Object.keys(marketData),
                     datasets: [{
-                        label: 'Preço Médio (R$)',
-                        data: markets.map(m => parseFloat(m.preco_medio)),
-                        backgroundColor: 'rgba(46, 204, 113, 0.6)',
-                        borderColor: 'rgba(46, 204, 113, 1)',
-                        borderWidth: 1
+                        data: Object.values(marketData),
+                        backgroundColor: [
+                            '#3498db',
+                            '#2ecc71',
+                            '#e74c3c',
+                            '#f1c40f',
+                            '#9b59b6'
+                        ]
                     }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Preço Médio (R$)'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Supermercado'
-                            }
-                        }
-                    }
                 }
             });
         }
-        
-        async function loadUsers() {
-            try {
-                const response = await fetch(`${API_URL}/users`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Clear table
-                    usersTable.innerHTML = '';
-                    
-                    // Add users to table
-                    data.forEach(user => {
-                        const row = usersTable.insertRow();
-                        
-                        const usernameCell = row.insertCell(0);
-                        usernameCell.textContent = user.username;
-                        
-                        const emailCell = row.insertCell(1);
-                        emailCell.textContent = user.email;
-                        
-                        const permissionCell = row.insertCell(2);
-                        const permissionBadge = document.createElement('span');
-                        permissionBadge.className = 'permission-badge';
-                        
-                        if (user.permission_level === 3) {
-                            permissionBadge.classList.add('admin');
-                            permissionBadge.textContent = 'Administrador';
-                        } else if (user.permission_level === 2) {
-                            permissionBadge.classList.add('moderator');
-                            permissionBadge.textContent = 'Moderador';
-                        } else {
-                            permissionBadge.classList.add('visitor');
-                            permissionBadge.textContent = 'Visitante';
-                        }
-                        
-                        permissionCell.appendChild(permissionBadge);
-                        
-                        const dateCell = row.insertCell(3);
-                        const date = new Date(user.created_at);
-                        dateCell.textContent = date.toLocaleDateString();
-                        
-                        const actionCell = row.insertCell(4);
-                        const editBtn = document.createElement('button');
-                        editBtn.textContent = 'Editar';
-                        editBtn.className = 'btn-edit';
-                        editBtn.addEventListener('click', () => editUser(user));
-                        actionCell.appendChild(editBtn);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading users:', error);
-            }
+
+        function updateResults(data) {
+            resultsCount.textContent = `${data.length} items`;
+            resultsTable.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.market}</td>
+                    <td class="price-cell">R$ ${item.price.toFixed(2)}</td>
+                    <td>${new Date(item.date).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn-edit" onclick="editProduct(${item.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
         }
-        
-        function editUser(user) {
-            const newPermission = prompt(
-                `Selecione o novo nível de permissão para ${user.username}:\n1 - Visitante\n2 - Moderador\n3 - Administrador`,
-                user.permission_level
-            );
-            
-            if (newPermission === null) return;
-            
-            const permissionLevel = parseInt(newPermission);
-            
-            if (isNaN(permissionLevel) || permissionLevel < 1 || permissionLevel > 3) {
-                alert('Por favor, digite um número entre 1 e 3');
-                return;
-            }
-            
-            updateUserPermission(user.id, permissionLevel);
-        }
-        
-        async function updateUserPermission(userId, permissionLevel) {
-            try {
-                showLoading();
-                const response = await fetch(`${API_URL}/users/${userId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ permission_level: permissionLevel })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    alert('Permissão atualizada com sucesso!');
-                    loadUsers();
-                } else {
-                    alert('Erro ao atualizar permissão: ' + data.message);
-                }
-            } catch (error) {
-                alert('Erro ao conectar com o servidor');
-            } finally {
-                hideLoading();
-            }
-        }
-        
-        async function loadLogs() {
-            try {
-                const response = await fetch(`${API_URL}/logs`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Clear logs list
-                    logsList.innerHTML = '';
-                    
-                    // Add logs to list
-                    data.data.forEach(log => {
-                        const logEntry = document.createElement('div');
-                        logEntry.className = 'log-entry';
-                        
-                        const logHeader = document.createElement('div');
-                        logHeader.className = 'log-header';
-                        
-                        const logAction = document.createElement('span');
-                        logAction.className = 'log-action';
-                        logAction.textContent = log.action;
-                        
-                        const logTime = document.createElement('span');
-                        logTime.className = 'log-time';
-                        const date = new Date(log.created_at);
-                        logTime.textContent = date.toLocaleString();
-                        
-                        logHeader.appendChild(logAction);
-                        logHeader.appendChild(logTime);
-                        
-                        const logDetails = document.createElement('div');
-                        logDetails.className = 'log-details';
-                        logDetails.textContent = log.details;
-                        
-                        logEntry.appendChild(logHeader);
-                        logEntry.appendChild(logDetails);
-                        
-                        logsList.appendChild(logEntry);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading logs:', error);
-            }
-        }
-        
-        function showProductDetail(product) {
-            // Clear previous details
-            productDetail.innerHTML = '';
-            
-            // Create detail elements
-            const details = [
-                { label: 'Produto', value: product.nome_produto },
-                { label: 'Supermercado', value: product.nome_supermercado },
-                { label: 'Categoria', value: product.categoria_produto },
-                { label: 'Preço', value: `R$ ${parseFloat(product.preco_produto).toFixed(2)}` },
-                { label: 'Unidade de Medida', value: product.unidade_medida },
-                { label: 'Código de Barras', value: product.codigo_barras || 'Não disponível' },
-                { label: 'Data da Última Venda', value: product.data_ultima_venda ? new Date(product.data_ultima_venda).toLocaleDateString() : 'Não disponível' },
-                { label: 'Data da Coleta', value: product.data_coleta ? new Date(product.data_coleta).toLocaleDateString() : 'Não disponível' },
-                { label: 'Origem', value: product.origem }
-            ];
-            
-            details.forEach(detail => {
-                const p = document.createElement('p');
-                p.innerHTML = `<span class="label">${detail.label}:</span> ${detail.value}`;
-                productDetail.appendChild(p);
-            });
-            
-            // Show modal
-            productModal.style.display = 'block';
+
+        // Inicialização
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.setAttribute('data-theme', 'dark');
+            themeToggle.querySelector('i').className = 'fas fa-sun';
         }
     </script>
 </body>
-
 </html>
-
