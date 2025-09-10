@@ -6,7 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
-const pLimit = require('pLimit').default;
+const pLimit = require('p-limit');
 const winston = require('winston');
 const { Parser } = require('json2csv');
 const lodash = require('lodash');
@@ -48,6 +48,8 @@ const corsOptions = {
 
 // Middlewares
 app.use(cors(corsOptions));
+app.use(express.static(path.join(__dirname)));
+app.use(express.json());
 app.use(express.json());
 
 // Middleware para lidar com requisições preflight (OPTIONS)
